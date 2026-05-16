@@ -103,14 +103,13 @@ impl StringBuilder {
     }
 
     pub fn to_string(&self) -> String {
-        if self.bytes_count <= 4096 {
-            let mut static_buf: [u8; _] = [0; 4096];
-            self.write_to_slice(&mut static_buf);
-            String::from_utf8_lossy(&static_buf[..self.bytes_count]).into()
-        } else {
-            let mut heap_buf: Vec<u8> = vec![0; self.bytes_count];
-            self.write_to_slice(&mut heap_buf);
-            String::from_utf8_lossy(&heap_buf).into()
+        if self.bytes_count == 0 { return String::new(); }
+
+        let mut buf = vec![0u8; self.bytes_count];
+        self.write_to_slice(&mut buf);
+
+        unsafe {
+            String::from_utf8_unchecked(buf)
         }
     }
 }
