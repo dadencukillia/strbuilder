@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Illia Diadenchuk
 // SPDX-License-Identifier: Zlib
 
-use std::alloc::{Layout, alloc};
+use std::alloc::{Layout, alloc, dealloc};
 
 const STRING_CHUNK_BYTES_LEN: usize = 64 - 8;
 
@@ -134,5 +134,21 @@ impl StringBuilder {
 
     pub fn to_string(&self) -> String {
         String::from_utf8_lossy(&self.to_bytes()).into()
+    }
+}
+
+impl Drop for StringBuilder {
+    fn drop(&mut self) {
+        let mut current = self.last_chunk;
+        let layout = Layout::new::<StringChunk>();
+
+        while !current.is_null() {
+            unsafe {
+                let prev = (*current).prev.cast_mut();
+                std::ptr::drop_in_place(current);
+                dealloc(current as *mut u8, layout);
+                current = prev;
+            }
+        }
     }
 }
