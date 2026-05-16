@@ -2,6 +2,13 @@
 name = "strbuilder"
 version = "0.1.0"
 edition = "2024"
+authors = ["Illia Diadenchuk <dadencukillia@gmail.com>"]
+description = "A high-performance StringBuilder for Rust designed to avoid memory reallocations using cache-aligned chunks."
+license = "Zlib"
+readme = "README.md"
+repository = "https://github.com/dadencukillia/strbuilder"
+keywords = ["string", "builder", "allocator", "performance", "cache-aligned"]
+categories = ["data-structures", "memory-management"]
 
 [features]
 default = []
