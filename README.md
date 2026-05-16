@@ -39,7 +39,7 @@ println!("{:?}", string_builder);
   |-- bytes: [u8; 56]              |-- bytes: [u8; 56]               |-- bytes: [u8; 56]
   |-- prev: null                   |-- prev: *const Chunk (first)    |-- prev: *const Chunk (second)
 
-[ StringBuilder (12B) ]
+[ StringBuilder (16B) ]
   |-- bytes_count: usize
   |-- last_chunk: *mut StringChunk (third)
 ```
