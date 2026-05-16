@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Illia Diadenchuk
 // SPDX-License-Identifier: Zlib
 
-use std::{alloc::{Layout, alloc}, rc::Rc};
+use std::alloc::{Layout, alloc};
 
 const STRING_CHUNK_BYTES_LEN: usize = 64 - 8;
 
