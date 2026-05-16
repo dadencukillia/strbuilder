@@ -1,26 +1,40 @@
 // Copyright (c) 2026 Illia Diadenchuk
 // SPDX-License-Identifier: Zlib
 
-use std::rc::Rc;
+use std::alloc::{Layout, alloc, dealloc};
 
-const STRING_CHUNK_BYTES_LEN: usize = 64 - size_of::<Option<Rc<StringChunk>>>();
+const STRING_CHUNK_BYTES_LEN: usize = 64 - 8;
 
 #[repr(align(64))]
 struct StringChunk {
     bytes: [u8; STRING_CHUNK_BYTES_LEN],
-    prev: Option<Rc<StringChunk>>
+    prev: *const StringChunk
 }
 
 pub struct StringBuilder {
-    last_chunk: Option<Rc<StringChunk>>,
+    last_chunk: *mut StringChunk,
     bytes_count: usize,
 }
 
 impl StringBuilder {
     pub fn new() -> Self {
         Self {
-            last_chunk: None,
+            last_chunk: std::ptr::null_mut(),
             bytes_count: 0,
+        }
+    }
+
+    fn allocate_new_chunk(chunk: StringChunk) -> *mut StringChunk {
+        let alloc_layout = Layout::new::<StringChunk>();
+        unsafe {
+            let allocated = alloc(alloc_layout) as *mut StringChunk;
+            if allocated.is_null() {
+                panic!("Couldn't allocate a new StringBuilder chunk");
+            }
+
+            allocated.write(chunk);
+
+            allocated
         }
     }
 
@@ -29,7 +43,7 @@ impl StringBuilder {
         let bytes_count = string_bytes.len();
         let chunks_count = (bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
 
-        let mut last_chunk: Option<Rc<StringChunk>> = None;
+        let mut last_chunk: *mut StringChunk = std::ptr::null_mut();
 
         // Loop for splitting our string into chunks
         for chunk_index in 0..chunks_count {
@@ -37,14 +51,14 @@ impl StringBuilder {
             let current_chunk_end = (current_chunk_start + STRING_CHUNK_BYTES_LEN - 1).min(bytes_count - 1);
             let mut current_string_chunk = StringChunk {
                 bytes: [0; STRING_CHUNK_BYTES_LEN],
-                prev: last_chunk.clone()
+                prev: last_chunk
             };
 
             for chunk_byte_index in 0..=(current_chunk_end - current_chunk_start) {
                 current_string_chunk.bytes[chunk_byte_index] = string_bytes[chunk_byte_index + current_chunk_start];
             }
 
-            last_chunk = Some(Rc::new(current_string_chunk))
+            last_chunk = Self::allocate_new_chunk(current_string_chunk);
         }
 
         Self { 
@@ -59,10 +73,10 @@ impl StringBuilder {
         let mut chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
 
         if chunks == 0 {
-            self.last_chunk = Some(Rc::new(StringChunk {
+            self.last_chunk = Self::allocate_new_chunk(StringChunk {
                 bytes: [0; STRING_CHUNK_BYTES_LEN],
-                prev: None
-            }));
+                prev: std::ptr::null_mut()
+            });
 
             chunks = 1;
         }
@@ -73,14 +87,14 @@ impl StringBuilder {
         while let Some(string_byte) = bytes_iter.next() {
             if chunk_left_size == 0 {
                 chunk_left_size = STRING_CHUNK_BYTES_LEN;
-                self.last_chunk = Some(Rc::new(StringChunk { 
+                self.last_chunk = Self::allocate_new_chunk(StringChunk {
                     bytes: [0; STRING_CHUNK_BYTES_LEN],
-                    prev: self.last_chunk.clone()
-                }));
+                    prev: self.last_chunk
+                });
             }
 
-            if let Some(last_chunk) = Rc::get_mut(self.last_chunk.as_mut().unwrap()) {
-                last_chunk.bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size] = string_byte;
+            unsafe {
+                (*self.last_chunk).bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size] = string_byte;
             }
 
             chunk_left_size -= 1;
@@ -98,18 +112,20 @@ impl StringBuilder {
         } else { 
             self.bytes_count - (chunks - 1) * STRING_CHUNK_BYTES_LEN 
         };
-        let mut current_chunk = self.last_chunk.clone();
+        let mut current_chunk = self.last_chunk;
         let mut index = self.bytes_count;
 
-        while let Some(ref current_chunk_some) = current_chunk {
-            bytes[index - 1] = current_chunk_some.bytes[remaining_chunk_size - 1];
+        unsafe {
+            while !current_chunk.is_null() {
+                bytes[index - 1] = (*current_chunk).bytes[remaining_chunk_size - 1];
 
-            remaining_chunk_size -= 1;
-            index -= 1;
+                remaining_chunk_size -= 1;
+                index -= 1;
 
-            if remaining_chunk_size == 0 {
-                current_chunk = current_chunk_some.prev.clone();
-                remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+                if remaining_chunk_size == 0 {
+                    current_chunk = (*current_chunk).prev.cast_mut();
+                    remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+                }
             }
         }
 
@@ -118,5 +134,21 @@ impl StringBuilder {
 
     pub fn to_string(&self) -> String {
         String::from_utf8_lossy(&self.to_bytes()).into()
+    }
+}
+
+impl Drop for StringBuilder {
+    fn drop(&mut self) {
+        let mut current = self.last_chunk;
+        let layout = Layout::new::<StringChunk>();
+
+        while !current.is_null() {
+            unsafe {
+                let prev = (*current).prev.cast_mut();
+                std::ptr::drop_in_place(current);
+                dealloc(current as *mut u8, layout);
+                current = prev;
+            }
+        }
     }
 }
