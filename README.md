@@ -43,3 +43,9 @@ println!("{:?}", string_builder);
   |-- bytes_count: usize
   |-- last_chunk: *mut StringChunk (third)
 ```
+
+## 🧑‍⚖️ License
+```
+Copyright (c) 2026 Illia Diadenchuk
+Licensed under Zlib license
+```
