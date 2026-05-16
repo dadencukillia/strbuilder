@@ -1,7 +1,10 @@
 // Copyright (c) 2026 Illia Diadenchuk
 // SPDX-License-Identifier: Zlib
 
-use std::alloc::{Layout, alloc, dealloc};
+use std::{
+    alloc::{Layout, alloc, dealloc},
+    fmt::Display
+};
 
 const STRING_CHUNK_BYTES_LEN: usize = 64 - 8;
 
@@ -35,35 +38,6 @@ impl StringBuilder {
             allocated.write(chunk);
 
             allocated
-        }
-    }
-
-    pub fn from(string: &str) -> Self {
-        let string_bytes = string.as_bytes();
-        let bytes_count = string_bytes.len();
-        let chunks_count = (bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
-
-        let mut last_chunk: *mut StringChunk = std::ptr::null_mut();
-
-        // Loop for splitting our string into chunks
-        for chunk_index in 0..chunks_count {
-            let current_chunk_start = chunk_index * STRING_CHUNK_BYTES_LEN;
-            let current_chunk_end = (current_chunk_start + STRING_CHUNK_BYTES_LEN - 1).min(bytes_count - 1);
-            let mut current_string_chunk = StringChunk {
-                bytes: [0; STRING_CHUNK_BYTES_LEN],
-                prev: last_chunk
-            };
-
-            for chunk_byte_index in 0..=(current_chunk_end - current_chunk_start) {
-                current_string_chunk.bytes[chunk_byte_index] = string_bytes[chunk_byte_index + current_chunk_start];
-            }
-
-            last_chunk = Self::allocate_new_chunk(current_string_chunk);
-        }
-
-        Self { 
-            last_chunk,
-            bytes_count,
         }
     }
 
@@ -150,5 +124,60 @@ impl Drop for StringBuilder {
                 current = prev;
             }
         }
+    }
+}
+
+impl From<&str> for StringBuilder {
+    fn from(string: &str) -> Self {
+        let string_bytes = string.as_bytes();
+        let bytes_count = string_bytes.len();
+        let chunks_count = (bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
+
+        let mut last_chunk: *mut StringChunk = std::ptr::null_mut();
+
+        // Loop for splitting our string into chunks
+        for chunk_index in 0..chunks_count {
+            let current_chunk_start = chunk_index * STRING_CHUNK_BYTES_LEN;
+            let current_chunk_end = (current_chunk_start + STRING_CHUNK_BYTES_LEN - 1).min(bytes_count - 1);
+            let mut current_string_chunk = StringChunk {
+                bytes: [0; STRING_CHUNK_BYTES_LEN],
+                prev: last_chunk
+            };
+
+            for chunk_byte_index in 0..=(current_chunk_end - current_chunk_start) {
+                current_string_chunk.bytes[chunk_byte_index] = string_bytes[chunk_byte_index + current_chunk_start];
+            }
+
+            last_chunk = Self::allocate_new_chunk(current_string_chunk);
+        }
+
+        Self { 
+            last_chunk,
+            bytes_count,
+        }
+    }
+}
+
+impl Display for StringBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_string())
+    }
+}
+
+impl Into<String> for StringBuilder {
+    fn into(self) -> String {
+        self.to_string()
+    }
+}
+
+impl From<String> for StringBuilder {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+
+impl Default for StringBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
