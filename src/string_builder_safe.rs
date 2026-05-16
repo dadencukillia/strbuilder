@@ -62,9 +62,7 @@ impl StringBuilder {
         self.bytes_count += string.len();
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes: Vec<u8> = vec![0; self.bytes_count];
-
+    fn write_to_slice(&self, buffer: &mut [u8]) {
         let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
         let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
             STRING_CHUNK_BYTES_LEN 
@@ -75,22 +73,26 @@ impl StringBuilder {
         let mut index = self.bytes_count;
 
         while let Some(ref current_chunk_some) = current_chunk {
-            bytes[index - 1] = current_chunk_some.bytes[remaining_chunk_size - 1];
-
-            remaining_chunk_size -= 1;
-            index -= 1;
-
-            if remaining_chunk_size == 0 {
-                current_chunk = current_chunk_some.prev.clone();
-                remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+            index -= remaining_chunk_size;
+            for i in 0..remaining_chunk_size {
+                buffer[index + i] = current_chunk_some.bytes[i];
             }
-        }
 
-        bytes
+            current_chunk = current_chunk_some.prev.clone();
+            remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+        }
     }
 
     pub fn to_string(&self) -> String {
-        String::from_utf8_lossy(&self.to_bytes()).into()
+        if self.bytes_count <= 4096 {
+            let mut static_buf: [u8; _] = [0; 4096];
+            self.write_to_slice(&mut static_buf);
+            String::from_utf8_lossy(&static_buf[..self.bytes_count]).into()
+        } else {
+            let mut heap_buf: Vec<u8> = vec![0; self.bytes_count];
+            self.write_to_slice(&mut heap_buf);
+            String::from_utf8_lossy(&heap_buf).into()
+        }
     }
 }
 
