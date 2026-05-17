@@ -5,7 +5,7 @@ use std::{
     fmt::Display, rc::Rc
 };
 
-const STRING_CHUNK_BYTES_LEN: usize = 64 - size_of::<Option<Rc<StringChunk>>>();
+const STRING_CHUNK_BYTES_LEN: usize = 1024 - size_of::<Option<Rc<StringChunk>>>();
 
 #[repr(align(64))]
 struct StringChunk {

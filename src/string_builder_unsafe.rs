@@ -6,7 +6,7 @@ use std::{
     fmt::Display
 };
 
-const STRING_CHUNK_BYTES_LEN: usize = 64 - 8;
+const STRING_CHUNK_BYTES_LEN: usize = 1024 - 8;
 
 #[repr(align(64))]
 struct StringChunk {

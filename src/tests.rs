@@ -13,17 +13,8 @@ fn test_from_short_string() {
 
 #[test]
 fn test_from_long_string() {
-    let long_string = "Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!";
-    let string_builder = StringBuilder::from(long_string);
-    let result = string_builder.to_string();
-
-    assert_eq!(result, long_string);
-}
-
-#[test]
-fn test_from_string_128_len() {
-    let long_string = "Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, worl";
-    let string_builder = StringBuilder::from(long_string);
+    let long_string = "Hello, world!".repeat(10_000);
+    let string_builder = StringBuilder::from(long_string.as_str());
     let result = string_builder.to_string();
 
     assert_eq!(result, long_string);
@@ -49,22 +40,7 @@ fn test_push_lot_strings() {
     let mut string_builder = StringBuilder::new();
     let mut expected = String::new();
 
-    for _ in 0..20 {
-        string_builder.push_str("Hello, world!");
-        expected.push_str("Hello, world!");
-    }
-
-    let result = string_builder.to_string();
-
-    assert_eq!(result, expected);
-}
-
-#[test]
-fn test_push_64_strings() {
-    let mut string_builder = StringBuilder::new();
-    let mut expected = String::new();
-
-    for _ in 0..64 {
+    for _ in 0..2000 {
         string_builder.push_str("Hello, world!");
         expected.push_str("Hello, world!");
     }
@@ -101,13 +77,13 @@ fn test_from_and_push() {
 
 #[test]
 fn test_long_from_and_long_push() {
-    let mut string_builder = StringBuilder::from("Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!");
+    let mut string_builder = StringBuilder::from("Hello, world!".repeat(500));
 
-    string_builder.push_str("Hello, world!Hello, world!Hello, world!Hello, world!Hello, world");
+    string_builder.push_str(&"Hello, world!".repeat(100));
 
     let result = string_builder.to_string();
 
-    assert_eq!(result, "Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world!Hello, world");
+    assert_eq!(result, "Hello, world!".repeat(600));
 }
 
 #[test]
