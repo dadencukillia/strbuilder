@@ -102,8 +102,9 @@ impl StringBuilder {
             let chunk_bytes_to_fill = chunk_left_size.min(bytes_left);
 
             if let Some(last_chunk) = Rc::get_mut(self.last_chunk.as_mut().unwrap()) {
+                let start_index = STRING_CHUNK_BYTES_LEN - chunk_left_size;
                 for i in 0..chunk_bytes_to_fill {
-                    last_chunk.bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size + i] = bytes_iter.next().unwrap();
+                    last_chunk.bytes[start_index + i] = bytes_iter.next().unwrap();
                 }
 
                 bytes_left -= chunk_bytes_to_fill;

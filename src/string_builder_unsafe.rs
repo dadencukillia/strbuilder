@@ -3,7 +3,7 @@
 
 use std::{
     alloc::{Layout, alloc, dealloc},
-    fmt::Display
+    fmt::Display,
 };
 
 const STRING_CHUNK_BYTES_LEN: usize = 1024 - 8;
