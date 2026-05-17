@@ -1,6 +1,6 @@
 [package]
 name = "strbuilder"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Illia Diadenchuk <dadencukillia@gmail.com>"]
 description = "A high-performance StringBuilder for Rust designed to avoid memory reallocations using cache-aligned chunks."

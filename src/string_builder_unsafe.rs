@@ -14,6 +14,22 @@ struct StringChunk {
     prev: *const StringChunk
 }
 
+/// A StringBuilder that uses linked list to avoid reallocations
+/// An unsafe variant
+///
+/// Example
+/// ```Rust
+/// let mut string_builder = StringBuilder::from("Hello,");
+/// // or
+/// let mut string_builder = StringBuilder::new();
+///
+/// string_builder.push_str(" ");
+/// string_builder.push_str("world!");
+///
+/// let result = string_builder.to_string();
+/// // or
+/// println!("{:?}", string_builder);
+/// ```
 pub struct StringBuilder {
     last_chunk: *mut StringChunk,
     bytes_count: usize,
@@ -21,6 +37,8 @@ pub struct StringBuilder {
 
 // Private methods
 impl StringBuilder {
+    /// Allocates a place for a StringChunk and puts your argument there
+    /// Returns a pointer to this place
     fn allocate_new_chunk(chunk: StringChunk) -> *mut StringChunk {
         let alloc_layout = Layout::new::<StringChunk>();
         unsafe {
@@ -30,11 +48,12 @@ impl StringBuilder {
             }
 
             allocated.write(chunk);
-
             allocated
         }
     }
 
+    /// Collects all data from chunks into one u8 buffer
+    /// Very expensive operation
     fn write_to_slice(&self, buffer: &mut [u8]) {
         let chunks = self.get_chunks_count();
         let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
@@ -60,6 +79,7 @@ impl StringBuilder {
         }
     }
 
+    /// Calculates the chunks count (linked list elements) by the bytes count field
     #[inline]
     fn get_chunks_count(&self) -> usize {
         (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN
@@ -68,6 +88,7 @@ impl StringBuilder {
 
 // Public methods
 impl StringBuilder {
+    /// Creates a new `StringBuilder` instance
     pub fn new() -> Self {
         Self {
             last_chunk: std::ptr::null_mut(),
@@ -75,6 +96,8 @@ impl StringBuilder {
         }
     }
 
+    /// Adds a string slice into the StringBuilder buffer
+    /// As a result, it concatenates the argument to the previous added strings
     pub fn push_str(&mut self, string: &str) {
         if string.is_empty() { return; }
 
