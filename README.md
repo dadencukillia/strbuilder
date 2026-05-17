@@ -44,6 +44,23 @@ println!("{:?}", string_builder);
   |-- last_chunk: *mut StringChunk (third)
 ```
 
+## 👍 Use recommendations
+| Case | std::string::String | strbuilder::StringBuilder | Comment |
+|------|---------------------|---------------------------|---------|
+| Few `push_str` calls | ✅ | ❌ | `String` stores data contiguously in memory, offering better cache locality and zero overhead when allocations are rare |
+| Many `push_str` calls | ❌ | ✅ | A large number of `push_str` calls increases the frequency of reallocations in a standard `String` |
+| The size is known | ✅ | ❌ | Use `String::with_capacity(...)` instead |
+| Large strings in `push_str` | ✅ | ❌ | For large inputs, `String` triggers very few reallocations and uses fast bulk memory copying, whereas StringBuilder is forced to allocate many nodes at once. |
+
+Despite these specific limitations, this implementation of `StringBuilder` shines in several real-world scenarios:
+
+- **Format Serializers / Deserializers** — Often perform a massive number of `push_str` calls with very short strings (e.g., syntax tokens like quotes, commas, and brackets).
+- **Logging & Tracing Frameworks** — Avoids unpredictable latency spikes caused by `String` reallocations when continuously appending short runtime messages.
+- **HTML Templating Engines** — Dynamically assemble complex pages from thousands of tiny static fragments (tags, attributes) and variables.
+- **SQL Query Generators (ORMs)** — Frequently concatenate multiple small structural fragments (clauses, identifiers, parameters) where the final query length cannot be predicted.
+
+*We are working to expand the usage areas with new versions...*
+
 ## 🧑‍⚖️ License
 ```
 Copyright (c) 2026 Illia Diadenchuk
