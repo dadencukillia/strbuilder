@@ -154,3 +154,15 @@ impl Default for StringBuilder {
         Self::new()
     }
 }
+
+impl Drop for StringBuilder {
+    fn drop(&mut self) {
+        let mut last_chunk: Option<Rc<StringChunk>> = self.last_chunk.take();
+
+        while let Some(last_chunk_some) = last_chunk.as_mut() {
+            if let Some(last_chunk_access) = Rc::get_mut(last_chunk_some) {
+                last_chunk = last_chunk_access.prev.take();
+            }
+        }
+    }
+}

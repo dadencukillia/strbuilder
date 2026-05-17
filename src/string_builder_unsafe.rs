@@ -107,22 +107,6 @@ impl StringBuilder {
     }
 }
 
-impl Drop for StringBuilder {
-    fn drop(&mut self) {
-        let mut current = self.last_chunk;
-        let layout = Layout::new::<StringChunk>();
-
-        while !current.is_null() {
-            unsafe {
-                let prev = (*current).prev.cast_mut();
-                std::ptr::drop_in_place(current);
-                dealloc(current as *mut u8, layout);
-                current = prev;
-            }
-        }
-    }
-}
-
 impl From<&str> for StringBuilder {
     fn from(string: &str) -> Self {
         let string_bytes = string.as_bytes();
@@ -184,5 +168,21 @@ impl From<String> for StringBuilder {
 impl Default for StringBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for StringBuilder {
+    fn drop(&mut self) {
+        let mut current = self.last_chunk;
+        let layout = Layout::new::<StringChunk>();
+
+        while !current.is_null() {
+            unsafe {
+                let prev = (*current).prev.cast_mut();
+                std::ptr::drop_in_place(current);
+                dealloc(current as *mut u8, layout);
+                current = prev;
+            }
+        }
     }
 }
