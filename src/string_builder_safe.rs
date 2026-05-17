@@ -18,6 +18,31 @@ pub struct StringBuilder {
     bytes_count: usize,
 }
 
+// Private methods
+impl StringBuilder {
+    fn write_to_slice(&self, buffer: &mut [u8]) {
+        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
+        let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
+            STRING_CHUNK_BYTES_LEN 
+        } else { 
+            self.bytes_count - (chunks - 1) * STRING_CHUNK_BYTES_LEN 
+        };
+        let mut current_chunk = self.last_chunk.clone();
+        let mut index = self.bytes_count;
+
+        while let Some(ref current_chunk_some) = current_chunk {
+            index -= remaining_chunk_size;
+            for i in 0..remaining_chunk_size {
+                buffer[index + i] = current_chunk_some.bytes[i];
+            }
+
+            current_chunk = current_chunk_some.prev.clone();
+            remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+        }
+    }
+}
+
+// Public methods
 impl StringBuilder {
     pub fn new() -> Self {
         Self {
@@ -61,39 +86,6 @@ impl StringBuilder {
 
         self.bytes_count += string.len();
     }
-
-    fn write_to_slice(&self, buffer: &mut [u8]) {
-        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
-        let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
-            STRING_CHUNK_BYTES_LEN 
-        } else { 
-            self.bytes_count - (chunks - 1) * STRING_CHUNK_BYTES_LEN 
-        };
-        let mut current_chunk = self.last_chunk.clone();
-        let mut index = self.bytes_count;
-
-        while let Some(ref current_chunk_some) = current_chunk {
-            index -= remaining_chunk_size;
-            for i in 0..remaining_chunk_size {
-                buffer[index + i] = current_chunk_some.bytes[i];
-            }
-
-            current_chunk = current_chunk_some.prev.clone();
-            remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        if self.bytes_count <= 4096 {
-            let mut static_buf: [u8; _] = [0; 4096];
-            self.write_to_slice(&mut static_buf);
-            String::from_utf8_lossy(&static_buf[..self.bytes_count]).into()
-        } else {
-            let mut heap_buf: Vec<u8> = vec![0; self.bytes_count];
-            self.write_to_slice(&mut heap_buf);
-            String::from_utf8_lossy(&heap_buf).into()
-        }
-    }
 }
 
 impl From<&str> for StringBuilder {
@@ -129,17 +121,29 @@ impl From<&str> for StringBuilder {
 
 impl Display for StringBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        let str: String = if self.bytes_count <= 4096 {
+            let mut static_buf: [u8; _] = [0; 4096];
+            self.write_to_slice(&mut static_buf);
+            String::from_utf8_lossy(&static_buf[..self.bytes_count]).into()
+        } else {
+            let mut heap_buf: Vec<u8> = vec![0; self.bytes_count];
+            self.write_to_slice(&mut heap_buf);
+            String::from_utf8_lossy(&heap_buf).into()
+        };
+
+        f.write_str(&str)
     }
 }
 
 impl Into<String> for StringBuilder {
+    #[inline]
     fn into(self) -> String {
         self.to_string()
     }
 }
 
 impl From<String> for StringBuilder {
+    #[inline]
     fn from(value: String) -> Self {
         Self::from(value.as_str())
     }

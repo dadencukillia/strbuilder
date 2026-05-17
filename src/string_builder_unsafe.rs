@@ -19,14 +19,8 @@ pub struct StringBuilder {
     bytes_count: usize,
 }
 
+// Private methods
 impl StringBuilder {
-    pub fn new() -> Self {
-        Self {
-            last_chunk: std::ptr::null_mut(),
-            bytes_count: 0,
-        }
-    }
-
     fn allocate_new_chunk(chunk: StringChunk) -> *mut StringChunk {
         let alloc_layout = Layout::new::<StringChunk>();
         unsafe {
@@ -38,6 +32,41 @@ impl StringBuilder {
             allocated.write(chunk);
 
             allocated
+        }
+    }
+
+    fn write_to_slice(&self, buffer: &mut [u8]) {
+        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
+        let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
+            STRING_CHUNK_BYTES_LEN 
+        } else { 
+            self.bytes_count - (chunks - 1) * STRING_CHUNK_BYTES_LEN 
+        };
+        let mut current_chunk = self.last_chunk;
+        let mut index = self.bytes_count;
+
+        unsafe {
+            while !current_chunk.is_null() {
+                index -= remaining_chunk_size;
+                std::ptr::copy_nonoverlapping(
+                    (*current_chunk).bytes.as_ptr(),
+                    &mut buffer[index] as *mut u8,
+                    remaining_chunk_size
+                );
+
+                current_chunk = (*current_chunk).prev.cast_mut();
+                remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
+            }
+        }
+    }
+}
+
+// Public methods
+impl StringBuilder {
+    pub fn new() -> Self {
+        Self {
+            last_chunk: std::ptr::null_mut(),
+            bytes_count: 0,
         }
     }
 
@@ -75,42 +104,6 @@ impl StringBuilder {
         }
 
         self.bytes_count += string.len();
-    }
-
-    fn write_to_slice(&self, buffer: &mut [u8]) {
-        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
-        let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
-            STRING_CHUNK_BYTES_LEN 
-        } else { 
-            self.bytes_count - (chunks - 1) * STRING_CHUNK_BYTES_LEN 
-        };
-        let mut current_chunk = self.last_chunk;
-        let mut index = self.bytes_count;
-
-        unsafe {
-            while !current_chunk.is_null() {
-                index -= remaining_chunk_size;
-                std::ptr::copy_nonoverlapping(
-                    (*current_chunk).bytes.as_ptr(),
-                    &mut buffer[index] as *mut u8,
-                    remaining_chunk_size
-                );
-
-                current_chunk = (*current_chunk).prev.cast_mut();
-                remaining_chunk_size = STRING_CHUNK_BYTES_LEN;
-            }
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        if self.bytes_count == 0 { return String::new(); }
-
-        let mut buf = vec![0u8; self.bytes_count];
-        self.write_to_slice(&mut buf);
-
-        unsafe {
-            String::from_utf8_unchecked(buf)
-        }
     }
 }
 
@@ -163,17 +156,26 @@ impl From<&str> for StringBuilder {
 
 impl Display for StringBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        if self.bytes_count == 0 { return f.write_str(""); }
+
+        let mut buf = vec![0u8; self.bytes_count];
+        self.write_to_slice(&mut buf);
+
+        unsafe {
+            f.write_str(&String::from_utf8_unchecked(buf))
+        }
     }
 }
 
 impl Into<String> for StringBuilder {
+    #[inline]
     fn into(self) -> String {
         self.to_string()
     }
 }
 
 impl From<String> for StringBuilder {
+    #[inline]
     fn from(value: String) -> Self {
         Self::from(value.as_str())
     }
