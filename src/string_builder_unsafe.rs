@@ -36,7 +36,7 @@ impl StringBuilder {
     }
 
     fn write_to_slice(&self, buffer: &mut [u8]) {
-        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
+        let chunks = self.get_chunks_count();
         let mut remaining_chunk_size = if chunks * STRING_CHUNK_BYTES_LEN == self.bytes_count { 
             STRING_CHUNK_BYTES_LEN 
         } else { 
@@ -59,6 +59,11 @@ impl StringBuilder {
             }
         }
     }
+
+    #[inline]
+    fn get_chunks_count(&self) -> usize {
+        (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN
+    }
 }
 
 // Public methods
@@ -73,7 +78,7 @@ impl StringBuilder {
     pub fn push_str(&mut self, string: &str) {
         if string.is_empty() { return; }
 
-        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN; 
+        let chunks = self.get_chunks_count();
         let mut chunk_left_size = chunks * STRING_CHUNK_BYTES_LEN - self.bytes_count;
         let mut bytes_left = string.len();
 
