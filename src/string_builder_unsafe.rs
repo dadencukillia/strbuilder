@@ -73,21 +73,11 @@ impl StringBuilder {
     pub fn push_str(&mut self, string: &str) {
         if string.is_empty() { return; }
 
-        let mut chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
-
-        if chunks == 0 {
-            self.last_chunk = Self::allocate_new_chunk(StringChunk {
-                bytes: [0; STRING_CHUNK_BYTES_LEN],
-                prev: std::ptr::null_mut()
-            });
-
-            chunks = 1;
-        }
-
+        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN; 
         let mut chunk_left_size = chunks * STRING_CHUNK_BYTES_LEN - self.bytes_count;
-        let mut bytes_iter = string.bytes();
+        let mut bytes_left = string.len();
 
-        while let Some(string_byte) = bytes_iter.next() {
+        while bytes_left != 0 {
             if chunk_left_size == 0 {
                 chunk_left_size = STRING_CHUNK_BYTES_LEN;
                 self.last_chunk = Self::allocate_new_chunk(StringChunk {
@@ -96,11 +86,18 @@ impl StringBuilder {
                 });
             }
 
+            let chunk_bytes_to_fill = chunk_left_size.min(bytes_left);
+
             unsafe {
-                (*self.last_chunk).bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size] = string_byte;
+                std::ptr::copy_nonoverlapping(
+                    &string.as_bytes()[string.len() - bytes_left] as *const u8,
+                    &mut (*self.last_chunk).bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size] as *mut u8,
+                    chunk_bytes_to_fill
+                );
             }
 
-            chunk_left_size -= 1;
+            bytes_left -= chunk_bytes_to_fill;
+            chunk_left_size -= chunk_bytes_to_fill;
         }
 
         self.bytes_count += string.len();

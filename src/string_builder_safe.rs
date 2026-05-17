@@ -54,22 +54,17 @@ impl StringBuilder {
     pub fn push_str(&mut self, string: &str) {
         if string.is_empty() { return; }
 
-        let mut chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
-
-        if chunks == 0 {
-            self.last_chunk = Some(Rc::new(StringChunk {
-                bytes: [0; STRING_CHUNK_BYTES_LEN],
-                prev: None
-            }));
-
-            chunks = 1;
-        }
-
+        let chunks = (self.bytes_count + STRING_CHUNK_BYTES_LEN - 1) / STRING_CHUNK_BYTES_LEN;
         let mut chunk_left_size = chunks * STRING_CHUNK_BYTES_LEN - self.bytes_count;
         let mut bytes_iter = string.bytes();
+        let mut bytes_left = string.len();
 
-        while let Some(string_byte) = bytes_iter.next() {
+        while bytes_left != 0 {
             if chunk_left_size == 0 {
+                // Here's Rc counter increases to 2, but
+                // returns back to 1 when we assign a new value to
+                // self.last_chunk
+
                 chunk_left_size = STRING_CHUNK_BYTES_LEN;
                 self.last_chunk = Some(Rc::new(StringChunk { 
                     bytes: [0; STRING_CHUNK_BYTES_LEN],
@@ -77,11 +72,18 @@ impl StringBuilder {
                 }));
             }
 
-            if let Some(last_chunk) = Rc::get_mut(self.last_chunk.as_mut().unwrap()) {
-                last_chunk.bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size] = string_byte;
-            }
+            let chunk_bytes_to_fill = chunk_left_size.min(bytes_left);
 
-            chunk_left_size -= 1;
+            if let Some(last_chunk) = Rc::get_mut(self.last_chunk.as_mut().unwrap()) {
+                for i in 0..chunk_bytes_to_fill {
+                    last_chunk.bytes[STRING_CHUNK_BYTES_LEN - chunk_left_size + i] = bytes_iter.next().unwrap();
+                }
+
+                bytes_left -= chunk_bytes_to_fill;
+                chunk_left_size -= chunk_bytes_to_fill;
+            } else {
+                unreachable!("Each Rc has only 1 owner");
+            }
         }
 
         self.bytes_count += string.len();
@@ -162,6 +164,8 @@ impl Drop for StringBuilder {
         while let Some(last_chunk_some) = last_chunk.as_mut() {
             if let Some(last_chunk_access) = Rc::get_mut(last_chunk_some) {
                 last_chunk = last_chunk_access.prev.take();
+            } else {
+                unreachable!("Each Rc has only 1 owner");
             }
         }
     }
